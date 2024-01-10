@@ -2,7 +2,6 @@ package confclient
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -14,30 +13,34 @@ import (
 type Client struct {
 	// IP or domain
 	Host string `env:""`
-	// Port
-	Port int `env:""`
-	// HTTP HTTPS
-	Protocol string `env:""`
 	// Second
 	Timeout time.Duration
 	client  *http.Client
 }
 
+func NewClient(host string) *Client {
+	return &Client{
+		Host: host,
+	}
+}
+
 func (c *Client) ApiServer() string {
-	return fmt.Sprintf("%s://%s:%d", c.Protocol, c.Host, c.Port)
+	return c.Host
+}
+
+func (c *Client) WithTimeout(timeout time.Duration) *Client {
+	c.Timeout = timeout
+	return c
+}
+
+func (c *Client) WithHttpClient(httpClient *http.Client) *Client {
+	c.client = httpClient
+	return c
 }
 
 func (c *Client) SetDefaults() {
 	if c.Host == "" {
-		c.Host = "127.0.0.1"
-	}
-
-	if c.Protocol == "" {
-		c.Protocol = "http"
-	}
-
-	if c.Port == 0 {
-		c.Port = 80
+		c.Host = "http://127.0.0.1"
 	}
 
 	if c.Timeout == 0 {
@@ -47,19 +50,21 @@ func (c *Client) SetDefaults() {
 
 func (c *Client) Init() {
 	c.SetDefaults()
-	c.client = &http.Client{
-		Timeout: c.Timeout * time.Second,
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			MaxIdleConns:          100,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
+	if c.client == nil {
+		c.client = &http.Client{
+			Timeout: c.Timeout * time.Second,
+			Transport: &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
+				DialContext: (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				MaxIdleConns:          100,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+			},
+		}
 	}
 }
 
